@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>思维漏洞扫描器</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <!-- 页头 -->
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">
+                <i class="fa fa-search text-red-500 mr-2"></i>思维漏洞扫描器
+            </h1>
+            <p class="text-gray-600">检测论证过程中的逻辑谬误和认知偏误，提升思维质量</p>
+        </header>
+
+        <!-- 统计卡片 -->
+        <div id="stats" class="grid grid-cols-3 gap-4 mb-6">
+            <div class="bg-white rounded-lg shadow p-4 text-center">
+                <div class="text-2xl font-bold text-blue-600" id="fallacyCount">0</div>
+                <div class="text-sm text-gray-500">逻辑谬误</div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4 text-center">
+                <div class="text-2xl font-bold text-purple-600" id="biasCount">0</div>
+                <div class="text-sm text-gray-500">认知偏误</div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4 text-center">
+                <div class="text-2xl font-bold text-green-600" id="scoreDisplay">-</div>
+                <div class="text-sm text-gray-500">思维评分</div>
+            </div>
+        </div>
+
+        <!-- 输入区域 -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <label class="block text-gray-700 font-medium mb-2">
+                <i class="fa fa-pencil-square-o text-gray-500 mr-1"></i>输入待检测的文本
+            </label>
+            <textarea id="inputText" rows="8"
+                class="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
+                placeholder="在这里输入你想检测的论证文本...&#10;&#10;例如：&#10;因为大多数人都这么做，所以这样做是对的。&#10;你这个无知的人，有什么资格讨论这个问题？&#10;要么支持我们的计划，要么就是反对公司发展。"></textarea>
+            <div class="flex items-center justify-between mt-3">
+                <span class="text-sm text-gray-400" id="charCount">0 字</span>
+                <button id="scanBtn"
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition duration-200">
+                    <i class="fa fa-search mr-1"></i>开始扫描
+                </button>
+            </div>
+        </div>
+
+        <!-- 结果区域 -->
+        <div id="results" class="hidden">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">
+                <i class="fa fa-list-alt text-gray-500 mr-1"></i>扫描结果
+                <span class="text-sm font-normal text-gray-500 ml-2" id="resultCount"></span>
+            </h2>
+            <div id="resultList" class="space-y-3"></div>
+        </div>
+
+        <!-- 支持的类型 -->
+        <div class="bg-white rounded-lg shadow p-6 mt-6">
+            <h2 class="text-lg font-bold text-gray-800 mb-4">
+                <i class="fa fa-check-circle text-green-500 mr-1"></i>支持的检测类型
+            </h2>
+            <div class="grid md:grid-cols-2 gap-4" id="checklist">
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <h3 class="font-bold text-blue-700 mb-2">逻辑谬误（15种）</h3>
+                    <ul class="text-sm text-gray-600 space-y-1" id="fallacyList"></ul>
+                </div>
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <h3 class="font-bold text-purple-700 mb-2">认知偏误（10种）</h3>
+                    <ul class="text-sm text-gray-600 space-y-1" id="biasList"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const inputText = document.getElementById('inputText');
+        const scanBtn = document.getElementById('scanBtn');
+        const results = document.getElementById('results');
+        const resultList = document.getElementById('resultList');
+        const resultCount = document.getElementById('resultCount');
+        const fallacyCount = document.getElementById('fallacyCount');
+        const biasCount = document.getElementById('biasCount');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const charCount = document.getElementById('charCount');
+
+        // 加载支持的类型列表
+        fetch('/checklist')
+            .then(r => r.json())
+            .then(data => {
+                const fallacyList = document.getElementById('fallacyList');
+                const biasList = document.getElementById('biasList');
+                data.fallacies.forEach(f => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<span class="font-medium">${f.name}</span> - ${f.description}`;
+                    fallacyList.appendChild(li);
+                });
+                data.biases.forEach(b => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<span class="font-medium">${b.name}</span> - ${b.description}`;
+                    biasList.appendChild(li);
+                });
+            });
+
+        // 字数统计
+        inputText.addEventListener('input', function() {
+            charCount.textContent = this.value.length + ' 字';
+        });
+
+        // 扫描按钮
+        scanBtn.addEventListener('click', function() {
+            const text = inputText.value.trim();
+            if (!text) {
+                alert('请输入需要检测的文本');
+                return;
+            }
+
+            scanBtn.disabled = true;
+            scanBtn.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i>扫描中...';
+
+            fetch('/scan', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({text: text})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+
+                // 更新统计
+                const summary = data.summary;
+                fallacyCount.textContent = summary.total_fallacies;
+                biasCount.textContent = summary.total_biases;
+                scoreDisplay.textContent = summary.score + '/100';
+
+                // 更新结果
+                results.classList.remove('hidden');
+                resultList.innerHTML = '';
+
+                if (data.results.length === 0) {
+                    resultCount.textContent = '未检测到逻辑问题，思维质量良好';
+                    resultList.innerHTML = `
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+                            <i class="fa fa-check-circle text-green-500 text-4xl mb-2"></i>
+                            <p class="text-green-700 font-medium">未检测到逻辑谬误和认知偏误</p>
+                            <p class="text-green-600 text-sm mt-1">论证质量良好，继续保持批判性思维</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                resultCount.textContent = `发现 ${data.results.length} 个问题`;
+
+                data.results.forEach((r, index) => {
+                    const bgColor = r.severity === 'high' ? 'bg-red-50 border-red-200' :
+                                    r.severity === 'medium' ? 'bg-yellow-50 border-yellow-200' :
+                                    'bg-blue-50 border-blue-200';
+                    const severityLabel = r.severity === 'high' ? '严重' :
+                                        r.severity === 'medium' ? '中等' : '轻微';
+                    const typeLabel = r.type === 'fallacy' ? '逻辑谬误' : '认知偏误';
+                    const typeColor = r.type === 'fallacy' ? 'text-blue-700 bg-blue-100' : 'text-purple-700 bg-purple-100';
+
+                    const div = document.createElement('div');
+                    div.className = `border rounded-lg p-4 ${bgColor}`;
+                    div.innerHTML = `
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-medium px-2 py-0.5 rounded ${typeColor}">${typeLabel}</span>
+                                <span class="text-xs font-medium px-2 py-0.5 rounded bg-gray-100 text-gray-600">${severityLabel}</span>
+                            </div>
+                            <span class="font-bold text-gray-800">${r.name}</span>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-1">${r.description}</p>
+                        <div class="bg-white bg-opacity-50 rounded p-2 mt-2 text-sm">
+                            <span class="text-gray-500">匹配内容：</span>
+                            <code class="text-red-600">${r.matched}</code>
+                        </div>
+                        <div class="mt-2 text-sm">
+                            <span class="text-gray-500">改进建议：</span>
+                            <span class="text-gray-700">${r.suggestion}</span>
+                        </div>
+                    `;
+                    resultList.appendChild(div);
+                });
+            })
+            .catch(err => {
+                alert('扫描出错：' + err.message);
+            })
+            .finally(() => {
+                scanBtn.disabled = false;
+                scanBtn.innerHTML = '<i class="fa fa-search mr-1"></i>开始扫描';
+            });
+        });
+    });
+    </script>
+</body>
+</html>

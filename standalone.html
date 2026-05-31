@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>思维漏洞扫描器 - 增强版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-6xl">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">
+                <i class="fa fa-search text-red-500 mr-2"></i>思维漏洞扫描器
+            </h1>
+            <p class="text-gray-600">检测论证过程中的逻辑谬误和认知偏误，提升思维质量</p>
+        </header>
+
+        <!-- 标签切换 -->
+        <div class="flex justify-center gap-2 mb-6">
+            <button onclick="switchTab('scan')" id="tabScan" class="px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium transition"><i class="fa fa-search mr-1"></i>扫描模式</button>
+            <button onclick="switchTab('train')" id="tabTrain" class="px-5 py-2.5 bg-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-300 transition"><i class="fa fa-graduation-cap mr-1"></i>训练模式</button>
+            <button onclick="switchTab('rules')" id="tabRules" class="px-5 py-2.5 bg-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-300 transition"><i class="fa fa-cog mr-1"></i>规则编辑器</button>
+        </div>
+
+        <!-- ============ 扫描模式 ============ -->
+        <div id="panelScan" class="block">
+            <div id="stats" class="grid grid-cols-4 gap-4 mb-6">
+                <div class="bg-white rounded-lg shadow p-4 text-center">
+                    <div class="text-2xl font-bold text-blue-600" id="fallacyCount">0</div>
+                    <div class="text-sm text-gray-500">逻辑谬误</div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4 text-center">
+                    <div class="text-2xl font-bold text-purple-600" id="biasCount">0</div>
+                    <div class="text-sm text-gray-500">认知偏误</div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4 text-center">
+                    <div class="text-2xl font-bold text-green-600" id="scoreDisplay">-</div>
+                    <div class="text-sm text-gray-500">思维评分</div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4 text-center">
+                    <div class="text-2xl font-bold text-amber-600" id="confidenceDisplay">0</div>
+                    <div class="text-sm text-gray-500">高置信度</div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6 mb-6">
+                <label class="block text-gray-700 font-medium mb-2">
+                    <i class="fa fa-pencil-square-o text-gray-500 mr-1"></i>输入待检测的文本
+                </label>
+                <textarea id="inputText" rows="8"
+                    class="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
+                    placeholder="在这里输入你想检测的论证文本..."></textarea>
+                <div class="flex items-center justify-between mt-3">
+                    <span class="text-sm text-gray-400" id="charCount">0 字</span>
+                    <div class="flex gap-2">
+                        <button id="loadSampleBtn"
+                            class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-lg transition duration-200 border border-gray-300">
+                            <i class="fa fa-file-text-o mr-1"></i>加载示例
+                        </button>
+                        <button id="scanBtn"
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition duration-200">
+                            <i class="fa fa-search mr-1"></i>开始扫描
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="highlightArea" class="hidden bg-white rounded-lg shadow p-6 mb-6">
+                <h2 class="text-lg font-bold text-gray-800 mb-3">
+                    <i class="fa fa-highlighter text-yellow-500 mr-1"></i>原文高亮标记
+                </h2>
+                <p class="text-xs text-gray-400 mb-3">
+                    <span class="inline-block w-3 h-3 bg-red-200 rounded-sm mr-1"></span>高置信度
+                    <span class="inline-block w-3 h-3 bg-yellow-200 rounded-sm mr-1 ml-3"></span>中置信度
+                    <span class="inline-block w-3 h-3 bg-gray-200 rounded-sm mr-1 ml-3"></span>低置信度
+                </p>
+                <div id="highlightedText" class="text-base leading-relaxed p-4 bg-gray-50 rounded-lg whitespace-pre-wrap"></div>
+            </div>
+
+            <div id="results" class="hidden">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-gray-800">
+                        <i class="fa fa-list-alt text-gray-500 mr-1"></i>扫描结果
+                        <span class="text-sm font-normal text-gray-500 ml-2" id="resultCount"></span>
+                    </h2>
+                    <div class="flex gap-2">
+                        <button id="exportReportBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm transition">
+                            <i class="fa fa-download mr-1"></i>导出报告
+                        </button>
+                        <button id="showSuggestionsBtn" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-sm transition">
+                            <i class="fa fa-lightbulb-o mr-1"></i>一键修改建议
+                        </button>
+                    </div>
+                </div>
+                <div id="resultList" class="space-y-3"></div>
+            </div>
+
+            <div id="suggestionsPanel" class="hidden bg-white rounded-lg shadow p-6 mt-6">
+                <h2 class="text-lg font-bold text-gray-800 mb-4">
+                    <i class="fa fa-lightbulb-o text-amber-500 mr-1"></i>修改建议汇总
+                </h2>
+                <div id="suggestionsList" class="space-y-3"></div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6 mt-6">
+                <h2 class="text-lg font-bold text-gray-800 mb-4">
+                    <i class="fa fa-check-circle text-green-500 mr-1"></i>支持的检测类型
+                </h2>
+                <div class="grid md:grid-cols-2 gap-4" id="checklist">
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h3 class="font-bold text-blue-700 mb-2">逻辑谬误（15种）</h3>
+                        <ul class="text-sm text-gray-600 space-y-1" id="fallacyList"></ul>
+                    </div>
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h3 class="font-bold text-purple-700 mb-2">认知偏误（10种）</h3>
+                        <ul class="text-sm text-gray-600 space-y-1" id="biasList"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ 训练模式 ============ -->
+        <div id="panelTrain" class="hidden">
+            <div class="bg-white rounded-lg shadow p-6 mb-6">
+                <h2 class="text-lg font-bold text-gray-800 mb-4">
+                    <i class="fa fa-graduation-cap text-green-500 mr-1"></i>谬误识别训练
+                </h2>
+                <p class="text-sm text-gray-500 mb-4">以下习题基于内置谬误类型随机生成。选择你认为正确的谬误类型。</p>
+
+                <div id="trainSettings" class="flex items-center gap-4 mb-4 p-3 bg-gray-50 rounded-lg">
+                    <div>
+                        <label class="text-sm text-gray-600 mr-2">题型：</label>
+                        <select id="trainType" class="border rounded p-1.5 text-sm">
+                            <option value="mixed">混合随机</option>
+                            <option value="fallacy">仅逻辑谬误</option>
+                            <option value="bias">仅认知偏误</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-sm text-gray-600 mr-2">题数：</label>
+                        <select id="trainCount" class="border rounded p-1.5 text-sm">
+                            <option value="3">3题</option>
+                            <option value="5" selected>5题</option>
+                            <option value="10">10题</option>
+                        </select>
+                    </div>
+                    <button onclick="startTraining()" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg text-sm transition">
+                        <i class="fa fa-play mr-1"></i>开始训练
+                    </button>
+                </div>
+
+                <div id="trainProgress" class="hidden mb-4">
+                    <div class="flex items-center justify-between text-sm text-gray-500 mb-1">
+                        <span id="trainProgressText">第 1/5 题</span>
+                        <span id="trainScoreText">正确：0 | 错误：0</span>
+                    </div>
+                    <div class="bg-gray-200 rounded-full h-2">
+                        <div id="trainProgressBar" class="bg-green-500 h-2 rounded-full transition-all" style="width:0%"></div>
+                    </div>
+                </div>
+
+                <div id="trainQuestion" class="hidden">
+                    <div class="p-4 bg-blue-50 rounded-lg border border-blue-200 mb-4">
+                        <p class="text-sm text-blue-800 font-medium mb-2"><i class="fa fa-quote-left mr-1"></i>以下表述中存在什么逻辑问题？</p>
+                        <p id="trainQuestionText" class="text-base text-gray-800 leading-relaxed p-3 bg-white rounded border border-blue-100"></p>
+                    </div>
+                    <div id="trainOptions" class="space-y-2 mb-4"></div>
+                    <div id="trainAnswer" class="hidden p-4 bg-green-50 rounded-lg border border-green-200 mb-4">
+                        <p class="text-sm font-medium text-green-700"><i class="fa fa-check-circle mr-1"></i><span id="trainResultText"></span></p>
+                        <p id="trainExplanation" class="text-sm text-gray-600 mt-1"></p>
+                    </div>
+                    <div id="trainWrong" class="hidden p-4 bg-red-50 rounded-lg border border-red-200 mb-4">
+                        <p class="text-sm font-medium text-red-700"><i class="fa fa-times-circle mr-1"></i><span id="trainWrongResult"></span></p>
+                        <p id="trainCorrectAnswer" class="text-sm text-gray-600 mt-1"></p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="trainSubmitBtn" onclick="submitTrainAnswer()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm transition">
+                            <i class="fa fa-check mr-1"></i>提交答案
+                        </button>
+                        <button id="trainNextBtn" onclick="nextTrainQuestion()" class="hidden bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg text-sm transition">
+                            <i class="fa fa-arrow-right mr-1"></i>下一题
+                        </button>
+                        <button id="trainRestartBtn" onclick="startTraining()" class="hidden bg-gray-600 hover:bg-gray-700 text-white px-5 py-2 rounded-lg text-sm transition">
+                            <i class="fa fa-repeat mr-1"></i>重新开始
+                        </button>
+                    </div>
+                </div>
+
+                <div id="trainComplete" class="hidden text-center p-6">
+                    <i class="fa fa-trophy text-5xl text-yellow-500 mb-3"></i>
+                    <h3 class="text-xl font-bold text-gray-800 mb-2">训练完成！</h3>
+                    <p class="text-gray-600 mb-4" id="trainCompleteText"></p>
+                    <div class="flex items-center justify-center gap-2 mb-4">
+                        <span class="text-sm text-gray-500">历史最佳：</span>
+                        <span id="trainBestRecord" class="font-bold text-green-600">-</span>
+                    </div>
+                    <button onclick="startTraining()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg text-sm transition">
+                        <i class="fa fa-repeat mr-1"></i>再练一次
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="font-bold text-gray-800 mb-4">
+                    <i class="fa fa-bar-chart text-purple-500 mr-1"></i>训练记录
+                </h3>
+                <div id="trainHistoryList" class="space-y-2 max-h-60 overflow-y-auto"></div>
+                <button onclick="clearTrainHistory()" class="mt-3 text-sm px-3 py-1.5 bg-red-100 text-red-600 rounded hover:bg-red-200 transition">
+                    <i class="fa fa-trash mr-1"></i>清空记录
+                </button>
+            </div>
+        </div>
+
+        <!-- ============ 规则编辑器 ============ -->
+        <div id="panelRules" class="hidden">
+            <div class="bg-white rounded-lg shadow p-6 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-gray-800">
+                        <i class="fa fa-cog text-orange-500 mr-1"></i>自定义检测规则
+                    </h2>
+                    <button onclick="showAddRuleForm()" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm transition">
+                        <i class="fa fa-plus mr-1"></i>新增规则
+                    </button>
+                </div>
+                <p class="text-sm text-gray-500 mb-4">你可以添加自定义的逻辑谬误或认知偏误检测规则。每条规则包含正则表达式模式、排除模式、描述和修改建议。</p>
+
+                <div id="addRuleForm" class="hidden bg-gray-50 rounded-lg p-4 mb-4 border border-orange-200">
+                    <h4 class="font-bold text-gray-700 mb-3"><i class="fa fa-pencil-square-o mr-1"></i>新增规则</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">规则名称 *</label>
+                            <input type="text" id="ruleName" class="w-full border rounded p-2 text-sm" placeholder="如：诉诸传统">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">英文名</label>
+                            <input type="text" id="ruleNameEn" class="w-full border rounded p-2 text-sm" placeholder="如：Appeal to Tradition">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">类型 *</label>
+                            <select id="ruleType" class="w-full border rounded p-2 text-sm">
+                                <option value="fallacy">逻辑谬误</option>
+                                <option value="bias">认知偏误</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">严重程度</label>
+                            <select id="ruleSeverity" class="w-full border rounded p-2 text-sm">
+                                <option value="high">严重</option>
+                                <option value="medium" selected>中等</option>
+                                <option value="low">轻微</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="block text-xs text-gray-500 mb-1">描述 *</label>
+                        <input type="text" id="ruleDesc" class="w-full border rounded p-2 text-sm" placeholder="描述这种谬误的特征">
+                    </div>
+                    <div class="mb-3">
+                        <label class="block text-xs text-gray-500 mb-1">正则表达式模式（每行一个，JavaScript 正则） *</label>
+                        <textarea id="rulePatterns" rows="3" class="w-full border rounded p-2 text-sm font-mono" placeholder="/因为.{0,10}所以.{0,10}因为/"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="block text-xs text-gray-500 mb-1">排除模式（每行一个，匹配则跳过）</label>
+                        <textarea id="ruleExclude" rows="2" class="w-full border rounded p-2 text-sm font-mono" placeholder="/避免诉诸传统/"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="block text-xs text-gray-500 mb-1">修改建议 *</label>
+                        <textarea id="ruleSuggestion" rows="2" class="w-full border rounded p-2 text-sm" placeholder="给出修改建议..."></textarea>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="saveCustomRule()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm transition">
+                            <i class="fa fa-save mr-1"></i>保存规则
+                        </button>
+                        <button onclick="hideAddRuleForm()" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg text-sm transition">
+                            <i class="fa fa-times mr-1"></i>取消
+                        </button>
+                    </div>
+                </div>
+
+                <div id="customRulesList">
+                    <div class="text-center text-gray-400 py-6">
+                        <i class="fa fa-inbox text-3xl block mb-2"></i>
+                        <p class="text-sm">暂无自定义规则</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ============ 自定义规则存储 ============
+    function getCustomRules() {
+        return JSON.parse(localStorage.getItem('customFallacyRules') || '[]');
+    }
+    function saveCustomRulesToStorage(rules) {
+        localStorage.setItem('customFallacyRules', JSON.stringify(rules));
+    }
+
+    // ============ 检测规则定义 ============
+
+    const FALLACY_RULES = [
+        {
+            name: '人身攻击谬误',
+            name_en: 'Ad Hominem',
+            description: '攻击提出观点的人而非观点本身',
+            severity: 'high',
+            patterns: [
+                /(你|他|她|这个人|这家伙|这种).{0,8}(就是|是个|也是|就是|不过是).{0,10}(无知|愚蠢|脑残|傻|笨|白痴|垃圾|没文化|low|素质低)/,
+                /(你|他)(这|那)种人.{0,10}(懂什么|有什么资格|配吗|没资格)/,
+                /(不看看你自己|先管好自己|你算什么东西|你什么水平)/,
+            ],
+            exclude: [
+                /引用.{0,10}观点认为.{0,10}(无知|愚蠢)/,
+                /不要.{0,6}(攻击|指责|嘲笑).{0,6}(他人|别人|对方)/,
+                /避免.{0,6}人身攻击/,
+            ],
+            suggestion: '请针对观点本身进行讨论，而非评价提出观点的人。可以指出观点的问题，但不要攻击提出者。'
+        },
+        {
+            name: '稻草人谬误',
+            name_en: 'Straw Man',
+            description: '曲解或夸大对方观点再反驳',
+            severity: 'high',
+            patterns: [
+                /(所以你的意思就是|你的意思是不是说|照你这么说|按你的逻辑).{0,15}(就是|等于|意味着).{1,20}(极端|绝对|全部|所有|从来|永远)/,
+                /(你莫不是|你该不会|难道你想|你是不是想).{1,15}(推翻|否定|反对|取消|废除)/,
+            ],
+            exclude: [
+                /警惕.{0,10}稻草人|防止.{0,10}曲解/,
+                /(避免|不要).{0,6}曲解.{0,6}对方/,
+            ],
+            suggestion: '在反驳之前，先确认你是否准确理解了对方的观点。可以请对方确认你的理解是否正确。'
+        },
+        {
+            name: '虚假两难',
+            name_en: 'False Dilemma',
+            description: '制造非此即彼、没有其他选择空间的假象',
+            severity: 'medium',
+            patterns: [
+                /(要么|要不).{1,10}(要么|要不|否则|不然)/,
+                /(不是.{1,15}就是.{1,15}|非.{1,8}即.{1,8})/,
+                /(只有.{1,15}没有其他选择|别无选择|只能二选一)/,
+            ],
+            exclude: [
+                /(要么|要不)A.{1,8}(要么|要不)B.{1,15}(第三种|其他|灵活|可选)/,
+                /避免.{0,6}(非黑即白|二元对立|两极化)/,
+                /不要.{0,6}(极端化|两极化)/,
+            ],
+            contextCheck: true,
+            contextKeywords: /(就是|便是|否则|不然|没有其他)/,
+            suggestion: '除了这些极端选项外，通常存在中间道路或替代方案。尝试列举更多可能性。'
+        },
+        {
+            name: '滑坡谬误',
+            name_en: 'Slippery Slope',
+            description: '认为一旦开始某件事，就一定会滑向极端后果',
+            severity: 'medium',
+            patterns: [
+                /(长此以往|久而久之|今天.{1,10}明天.{1,10}|一旦.{0,10}就.{1,20}(完|崩|乱|失控|不可收拾))/,
+                /(如果.{1,15}那么.{1,15}(必然|一定|迟早|终将))/,
+            ],
+            exclude: [
+                /警惕.{0,10}滑坡|防止.{0,10}滑坡|避免.{0,10}滑坡/,
+                /这.{0,6}是滑坡谬误|典型的滑坡/,
+            ],
+            contextCheck: true,
+            contextKeywords: /(如果.{1,10}就|一旦.{1,10}便|只要.{1,10}必然|越.{1,10}越.{1,10}(完|崩|乱|失控))/,
+            suggestion: '检查连锁反应中的每一步是否必然成立。通常从A到Z之间存在很多可以控制的中途环节。'
+        },
+        {
+            name: '循环论证',
+            name_en: 'Circular Reasoning',
+            description: '结论出现在前提中，形成逻辑循环',
+            severity: 'high',
+            patterns: [
+                /因为.{2,15}所以.{2,15}因为/,
+                /之所以.{2,15}就是因为.{2,15}(这|它)本身/,
+            ],
+            exclude: [
+                /循环论证.{0,6}指|什么是循环论证|避免循环论证/,
+            ],
+            suggestion: '检查你的论证是否在用结论证明前提。好的论证应该使用独立于结论的证据。'
+        },
+        {
+            name: '以偏概全',
+            name_en: 'Hasty Generalization',
+            description: '基于不足够的样本得出一般性结论',
+            severity: 'medium',
+            patterns: [
+                /(我(见过|遇到|认识|知道)的.{0,10}(都|全|全部|统统|每个|所有))/,
+                /(几.{0,4}个.{0,5}(例子|案例|人|情况).{0,10}(证明|说明|表明|可见|足以))/,
+                /(身边|周围).{0,6}(都|全|全部|每个|所有)/,
+                /(就.{0,4}几个.{0,8}(案例|例子|数据).{0,8}(就|足以|可以|能))/,
+            ],
+            exclude: [
+                /以偏概全.{0,4}(指|是|就是说)|防止以偏概全/,
+                /不代表.{0,6}(所有|全部)/,
+                /仅.{0,4}这些.{0,4}(案例|例子).{0,4}说明/,
+            ],
+            suggestion: '检查你的样本量是否足够大、样本是否具有代表性。可以补充更多证据来支持结论。'
+        },
+        {
+            name: '诉诸权威',
+            name_en: 'Appeal to Authority',
+            description: '以权威人士的观点作为最终论据，忽视论证本身',
+            severity: 'low',
+            patterns: [
+                /(专家|教授|博士|学者|权威).{0,10}(说|认为|指出|表示|说了|告诉)/,
+                /(据.{0,10}(研究|报告|统计).{0,10}(表明|显示|证明))/,
+                /(某某.{0,4}(说过|认为|不是说过|的观点是)/,
+            ],
+            exclude: [
+                /(专家|教授|博士).{0,10}(表示|指出).{0,10}(但|不过|然而).{0,10}(需要|仍需|有待)/,
+                /根据.{0,10}(研究|报告).{0,10}(显示|表明).{0,10}(但|然而|不过)/,
+                /(并非|不能|不应)仅(凭|靠|依据)权威/,
+            ],
+            suggestion: '权威的观点可以作为参考，但不能替代逻辑论证。可以追问权威观点的论据是什么。'
+        },
+        {
+            name: '诉诸自然',
+            name_en: 'Appeal to Nature',
+            description: '认为"自然"的就是好的、对的',
+            severity: 'low',
+            patterns: [
+                /(天然|自然|纯天然|无添加|野生).{0,8}(就是|肯定|一定|绝对|比.{1,6}(好|健康|安全|优越))/,
+                /(化学|人工|合成|添加剂).{0,8}(就是|肯定|一定|绝对)(不好|有害|有毒|危险)/,
+            ],
+            exclude: [
+                /避免.{0,6}(诉诸自然|自然谬误)/,
+                /天然.{0,6}(不一定|并不|未必)/,
+                /化学.{0,6}(不一定|并不|未必)/,
+            ],
+            suggestion: '自然的不一定就是好的（如自然毒素），人工的不一定就是坏的（如药物）。需要依据具体证据判断。'
+        },
+        {
+            name: '诉诸情感',
+            name_en: 'Appeal to Emotion',
+            description: '用情感煽动替代理性论证',
+            severity: 'medium',
+            patterns: [
+                /(你有没有想过.{0,15}(可怜|痛苦|难过|伤心|绝望)|难道你忍心.{1,15}(受罪|受苦|受伤|难过))/,
+                /(令.{0,10}(心碎|心痛|心酸|泪目|动容).{0,15}(还不|难道|难道不|怎么可以))/,
+            ],
+            exclude: [
+                /避免.{0,6}(诉诸情感|情感煽动)/,
+                /不要.{0,6}(用情感|煽情).{0,6}(代替|替代).{0,6}(逻辑|理性)/,
+            ],
+            suggestion: '情感可以增强表达，但不能替代逻辑论证。请检查是否有充分的理性论据支撑观点。'
+        },
+        {
+            name: '从众谬误',
+            name_en: 'Bandwagon',
+            description: '以多数人认可为由论证观点正确',
+            severity: 'low',
+            patterns: [
+                /(大多数|多数人|大家|所有人|群众|主流).{0,10}(都|认为|说|觉得|支持|同意|选择)/,
+                /(这么多.{0,6}(人|用户|消费者|用户).{0,8}(都|选择|认可|使用).{0,6}(你说|还能|怎么可能).{0,8}(错|不好|不行))/,
+                /(大家都在|别人都|人人都|个个都)/,
+            ],
+            exclude: [
+                /尽管.{0,10}(大多数人|大家|所有人).{0,10}(但|却|然而|不过)/,
+                /不(能|应|要)盲从.{0,6}(大众|多数|主流)/,
+                /(避免|防止)从众/,
+            ],
+            contextCheck: true,
+            contextKeywords: /(所以|因此|可见|这说明|由此可见|这就说明|足以证明|足以说明)/,
+            suggestion: '多数人的选择不一定是对的。历史上的很多错误观念也曾被多数人接受。'
+        },
+        {
+            name: '你也一样谬误',
+            name_en: 'Tu Quoque',
+            description: '以对方也有类似问题为由回避批评',
+            severity: 'medium',
+            patterns: [
+                /(你自己.{0,8}(不也|还不是|也|也一样)|你.{0,4}(有资格|配).{0,8}(说|批评|指责|讲))/,
+                /(先看看你自己|你先管好你自己|你也好不到哪去|你半斤八两)/,
+            ],
+            exclude: [
+                /你也一样谬误.{0,4}(指|就是)|避免你也一样/,
+                /不要.{0,6}(以对方也有问题|你也一样).{0,6}(为由|来|作为)/,
+            ],
+            suggestion: '对方的行为存在问题不等于你的行为就是对的。分别评估每个行为的对错。'
+        },
+        {
+            name: '起源谬误',
+            name_en: 'Genetic Fallacy',
+            description: '因为观点的来源不好就否定观点本身',
+            severity: 'medium',
+            patterns: [
+                /这.{0,8}观点出自.{1,10}这种.{0,8}(地方|人|组织|媒体|网站).{0,8}(能|会|可能).{0,8}(好|对|正确|可信)/,
+                /这.{0,8}(是|来自).{1,10}(坏|烂|垃圾|不靠谱).{0,6}(地方|人|媒体).{0,8}(说的|写的|报道的)/,
+            ],
+            exclude: [
+                /起源谬误.{0,4}(指|就是)|避免起源谬误/,
+                /不(能|应).{0,4}(仅|只)凭来源.{0,6}(判断|否定|评价)/,
+            ],
+            suggestion: '不要因为来源令人反感就否定一个观点。用事实和逻辑来检验观点本身。'
+        },
+        {
+            name: '合成谬误',
+            name_en: 'Composition Fallacy',
+            description: '认为部分具有的性质整体也一定具有',
+            severity: 'low',
+            patterns: [
+                /每个.{1,8}(都|都是).{1,15}(所以|因此).{0,8}(整体|大家|所有|全部).{1,10}也/,
+                /每个部分.{0,8}(好|优秀|完美|理想).{0,10}整体.{0,10}(好|完美|理想|优秀)/,
+            ],
+            exclude: [
+                /合成谬误.{0,4}(指|就是|是指)/,
+                /不(能|应).{0,4}认为.{0,10}整体.{0,6}(就|一定).{0,6}(好|优秀)/,
+            ],
+            suggestion: '将优秀的部分组合在一起并不一定等于优秀的整体。有时整体效果可能小于部分之和。'
+        },
+        {
+            name: '分解谬误',
+            name_en: 'Division Fallacy',
+            description: '认为整体具有的性质每个部分也一定具有',
+            severity: 'low',
+            patterns: [
+                /这个.{1,10}(团队|公司|组织|系统|班级).{0,8}(很|非常|特别).{1,6}(好|优秀|强|厉害|出色).{0,15}(所以|因此|可见).{0,8}(每个|任何|所有|谁都)/,
+                /整体.{0,4}(很好|很优秀|很强).{0,10}(每个|任何|各).{0,6}(人|部分|成员).{0,6}(也|都)/,
+            ],
+            exclude: [
+                /分解谬误.{0,4}(指|就是|是指)/,
+                /整体优秀.{0,6}(不代表|不等于|不一定).{0,6}(每个|任何|所有)/,
+            ],
+            suggestion: '整体优秀不意味着每个个体都优秀，反之亦然。避免将群体特征直接套用到个体。'
+        },
+        {
+            name: '赌徒谬误',
+            name_en: "Gambler's Fallacy",
+            description: '认为独立随机事件之间存在关联',
+            severity: 'low',
+            patterns: [
+                /(连续.{0,6}(了|出现).{1,10}(那么多次|这么久|很多次|好多次).{0,10}(总该|该|应该|下次|接下来).{1,10}(会|轮|换))/,
+                /(已经.{0,6}(输了|亏了|跌了|涨了).{0,8}(这么|那么|如此).{0,8}(多|久|多次).{0,8}(总会|总该|应该|一定).{1,8}(翻盘|反弹|涨|降))/,
+            ],
+            exclude: [
+                /赌徒谬误.{0,4}(指|就是|是指)|避免赌徒谬误/,
+                /独立.{0,4}(事件|随机).{0,6}(不受|不因).{0,6}前(次|面).{0,4}(影响|改变)/,
+            ],
+            suggestion: '独立事件的概率不受此前结果影响。每次抛硬币的概率仍然是50%，无论之前连续出现了多少次正面。'
+        },
+    ];
+
+    const BIAS_RULES = [
+        {
+            name: '确认偏误',
+            name_en: 'Confirmation Bias',
+            description: '倾向于寻找和关注支持自己已有观点的信息，忽视反面证据',
+            severity: 'medium',
+            patterns: [
+                /我一直.{0,8}(认为|觉得|相信|主张).{0,15}(再次|再一次|又|更加|进一步)(证明|证实|验证|说明)/,
+                /这.{0,5}(不|难道不|不就|正好|恰恰).{0,8}(证明|说明|印证|证实).{0,10}(我说|我的|我之前|我一直)的/,
+                /早就.{0,6}(说过|知道|料到|想到).{0,10}(果然|果不其然|不出所料|看吧|对吧)/,
+            ],
+            exclude: [
+                /确认偏误.{0,4}(指|就是|是指)|避免确认偏误/,
+                /主动寻找.{0,6}相反.{0,4}(证据|观点)/,
+            ],
+            suggestion: '主动寻找与自己观点相反的证据（反面搜索），避免只收集支持自己的信息。'
+        },
+        {
+            name: '锚定效应',
+            name_en: 'Anchoring Effect',
+            description: '过度依赖最先获得的信息（锚点）来做出后续判断',
+            severity: 'low',
+            patterns: [
+                /参考.{0,6}(去年|之前|以前|历史|上个月).{0,10}(数据|价格|标准|基准|水平).{0,15}(相比|对比|比较|参照)/,
+                /以.{0,6}(为基准|为参照|为标准|作为锚点|作为参考点).{0,15}(调整|改动|修改|变动)/,
+            ],
+            exclude: [
+                /锚定效应.{0,4}(指|就是|是指)|避免锚定效应/,
+                /避免.{0,6}过度.{0,4}(依赖|参考).{0,4}(初始|第一).{0,4}(信息|数据)/,
+            ],
+            suggestion: '避免过度依赖初始信息作为判断基准。尝试从不同角度评估，获取更多独立信息源。'
+        },
+        {
+            name: '达克效应',
+            name_en: 'Dunning-Kruger Effect',
+            description: '能力不足的人往往会高估自己，而真正有能力的人反而容易低估自己',
+            severity: 'low',
+            patterns: [
+                /这.{0,6}(有|没|不).{0,6}(什么|啥).{0,6}(难的|复杂的|需要学的|了不起的|大不了的)/,
+                /不就是.{0,8}(吗|嘛|罢了).{0,8}(我|我上|谁).{0,8}(也|都).{0,8}(行|可以|能)。?/,
+                /(这么简单的事情|这么容易的东西|谁会不懂这个)/,
+            ],
+            exclude: [
+                /达克效应.{0,4}(指|就是|是指)/,
+                /不要.{0,6}高估.{0,4}(自己|能力)/,
+            ],
+            suggestion: '对一个领域的了解越浅，越容易低估其复杂性。请在深入学习和实践后再评估自己的水平。'
+        },
+        {
+            name: '幸存者偏差',
+            name_en: 'Survivorship Bias',
+            description: '只关注成功者或幸存者，而忽略了失败者的存在',
+            severity: 'high',
+            patterns: [
+                /你看.{0,8}(那些人|他们|人家|那些成功的).{0,15}(不就|不都是|都是|也是).{0,10}(辍学|没学历|不努力|运气好|创业|辞职)/,
+                /某某.{0,4}(也是|就是|不也是|不就是).{0,4}(这样|这么做|这么干|走这条路).{0,10}(成功|赚到|发了|成了)/,
+                /那些成功.{0,6}(的|人士|者|的人).{0,15}(都是|都|也是|全都)(因|靠|通过|凭借)/,
+            ],
+            exclude: [
+                /幸存者偏差.{0,4}(指|就是|是指)/,
+                /不要.{0,4}只.{0,4}(看|关注|注意).{0,4}(成功|幸存)/,
+                /也.{0,4}要.{0,4}(看|关注|考虑).{0,4}(失败|淘汰)/,
+            ],
+            suggestion: '不要只看成功案例。同样方法失败的人有多少？成功者的成功可能来自其他因素。'
+        },
+        {
+            name: '可得性启发',
+            name_en: 'Availability Heuristic',
+            description: '以能想起类似事例的容易程度来判断事件发生的概率',
+            severity: 'low',
+            patterns: [
+                /最近.{0,10}(好多|很多|频繁|经常).{0,10}(新闻|报道|听说|看到|遇到).{0,10}(所以|因此|可见).{0,10}(很常见|很多|越来越|到处都是|高风险)/,
+                /我(身边|周围|认识)的.{0,10}(都|全|全是|全都|基本上).{0,10}(这样|如此|这个情况)/,
+            ],
+            exclude: [
+                /可得性启发.{0,4}(指|就是|是指)/,
+                /不(能|应).{0,4}(仅|只)凭.{0,4}(身边|个人).{0,4}(判断|下结论)/,
+            ],
+            suggestion: '容易想起的案例不代表它更常见。请参考统计数据而非个人体验来评估概率。'
+        },
+        {
+            name: '后见之明',
+            name_en: 'Hindsight Bias',
+            description: '在事情发生后认为自己在事前就已经知道结果',
+            severity: 'medium',
+            patterns: [
+                /早就.{0,6}(知道|说过|料到|想到|预见|预感).{0,15}(会.{0,8}|结果.{0,8}|肯定.{0,8}|必然.{0,8})/,
+                /我(当初|之前|一开始).{0,8}(就说|就说过|就认为|就觉得|就知道|就猜到).{0,15}(肯定|一定|绝对|必然|早晚会).{0,8}(出问题|成功|失败)/,
+            ],
+            exclude: [
+                /后见之明.{0,4}(指|就是|是指)|避免后见之明/,
+                /不(要|应).{0,4}(事后|马后炮).{0,6}(判断|评价)/,
+            ],
+            suggestion: '请回忆在事前你有多确定这个结果。事后看来的"必然"在事前可能只是众多可能性之一。'
+        },
+        {
+            name: '过度自信',
+            name_en: 'Overconfidence Effect',
+            description: '高估自己判断的准确性和预测能力',
+            severity: 'medium',
+            patterns: [
+                /我(百分之百|绝对|肯定|一定|百分百|毫无疑问|毋庸置疑).{0,10}(确定|肯定|相信|认为|保证)/,
+                /用.{0,4}(脚|膝盖).{0,8}(想|思考).{0,6}(都|也).{0,6}(知道|想到|明白)/,
+                /(想都别想|做梦都不可能出现|打死我也不信|一定是这样|绝对没错)/,
+            ],
+            exclude: [
+                /过度自信.{0,4}(指|就是|是指)|避免过度自信/,
+                /不(要|应).{0,4}(过于|过度).{0,4}(自信|乐观|肯定)/,
+            ],
+            suggestion: '给自己的判断留一个误差空间。可以用概率思维来表达不确定度，而不是绝对化的断言。'
+        },
+        {
+            name: '沉没成本谬误',
+            name_en: 'Sunk Cost Fallacy',
+            description: '因为已经投入了大量时间、金钱或精力，所以继续坚持明知不正确的决策',
+            severity: 'high',
+            patterns: [
+                /已经(投入|花了|付出|用了|等了).{0,10}(这么|那么|如此).{0,8}(多|久|长时间|心血|精力|钱).{0,10}(放弃|停止|退出|算了|不做了).{0,10}(可惜|浪费|不甘心|不甘)/,
+                /都.{0,6}(这一步|这个份|这个程度|这么久|这么多了).{0,10}(现在|这时候).{0,10}(放弃|退出|停止).{0,10}(可惜|浪费|不是白费了|前功尽弃)/,
+            ],
+            exclude: [
+                /沉没成本.{0,4}(指|就是|是指)|避免沉没成本/,
+                /不(要|应).{0,4}被.{0,4}(过去|已投入).{0,4}(绑定|束缚|影响)/,
+            ],
+            suggestion: '过去的投入已经无法收回（沉没成本）。做决策时只考虑未来的收益和成本，不要让过去影响现在。'
+        },
+        {
+            name: '框架效应',
+            name_en: 'Framing Effect',
+            description: '同一个问题因表述方式不同而产生不同的判断',
+            severity: 'low',
+            patterns: [
+                /(成功率.{0,10}(高达|达到|超过)|失败率.{0,10}(只有|低至|不到))/,
+                /如果.{0,10}(不做|不尝试|不行动|不采用).{0,15}(将|会|可能).{0,10}(损失|错过|失去|落后)/,
+            ],
+            exclude: [
+                /框架效应.{0,4}(指|就是|是指)/,
+                /尝试.{0,4}(从|用).{0,4}(相反|不同).{0,4}(框架|角度).{0,4}(重新|再次).{0,4}(表述|思考)/,
+            ],
+            suggestion: '尝试从相反框架重新表述问题。例如：如果是"90%存活率"，也想想"10%死亡率"。'
+        },
+        {
+            name: '负面偏误',
+            name_en: 'Negativity Bias',
+            description: '在同等强度下，负面信息对人的影响大于正面信息',
+            severity: 'low',
+            patterns: [
+                /虽然.{0,10}(不错|还行|可以|好).{0,5}(但是|可是|不过|然而).{0,15}(问题|风险|缺陷|不足|缺憾|隐患|担忧)/,
+                /好.{0,5}(是好|确实不错|还可以).{0,10}(但|不过|然而|可是).{0,10}(你.{0,6}要|你.{0,6}得|必须|一定|千万).{0,8}(注意|小心|当心|警惕)/,
+            ],
+            exclude: [
+                /负面偏误.{0,4}(指|就是|是指)/,
+                /主动.{0,4}(记录|关注).{0,4}(正面|积极).{0,4}(事件|信息)/,
+            ],
+            suggestion: '主动记录和回顾正面事件，有意识地平衡对正面和负面信息的关注度。'
+        },
+    ];
+
+    // ============ 合并自定义规则 ============
+    function getAllRules() {
+        const custom = getCustomRules();
+        const customFallacies = custom.filter(r => r.type === 'fallacy');
+        const customBiases = custom.filter(r => r.type === 'bias');
+        const allFallacies = [...FALLACY_RULES, ...customFallacies.map(r => ({
+            name: r.name,
+            name_en: r.nameEn,
+            description: r.desc,
+            severity: r.severity,
+            patterns: r.patternsArr || [],
+            exclude: r.excludeArr || [],
+            suggestion: r.suggestion
+        }))];
+        const allBiases = [...BIAS_RULES, ...customBiases.map(r => ({
+            name: r.name,
+            name_en: r.nameEn,
+            description: r.desc,
+            severity: r.severity,
+            patterns: r.patternsArr || [],
+            exclude: r.excludeArr || [],
+            suggestion: r.suggestion
+        }))];
+        return { fallacies: allFallacies, biases: allBiases };
+    }
+
+    // ============ 检测引擎 ============
+
+    function scanText(text) {
+        if (!text || !text.trim()) return [];
+        const { fallacies, biases } = getAllRules();
+        const allRules = [...fallacies.map(r => ({ ...r, _type: 'fallacy' })), ...biases.map(r => ({ ...r, _type: 'bias' }))];
+
+        const results = [];
+        const seen = new Set();
+        const paragraphs = text.split('\n').map(p => p.trim()).filter(p => p.length >= 5);
+
+        for (const para of paragraphs) {
+            for (const rule of allRules) {
+                for (const pattern of rule.patterns) {
+                    const matches = para.matchAll(pattern);
+                    for (const match of matches) {
+                        const matchedText = match[0];
+                        const key = rule.name + '|' + matchedText;
+                        if (seen.has(key)) continue;
+                        if (rule.exclude) {
+                            let isExcluded = false;
+                            for (const exPattern of rule.exclude) {
+                                if (exPattern.test(para)) { isExcluded = true; break; }
+                            }
+                            if (isExcluded) continue;
+                        }
+                        if (rule.contextCheck) {
+                            const hasConclusion = rule.contextKeywords && rule.contextKeywords.test(para);
+                            if (!hasConclusion) continue;
+                        }
+                        seen.add(key);
+                        const charPos = match.index;
+                        const contextStart = Math.max(0, charPos - 15);
+                        const contextEnd = Math.min(para.length, charPos + matchedText.length + 15);
+                        const context = '...' + para.slice(contextStart, contextEnd) + '...';
+                        let matchedPatternCount = 0;
+                        for (const p of rule.patterns) {
+                            if (p.test(para)) matchedPatternCount++;
+                        }
+                        const totalPatterns = rule.patterns.length;
+                        const patternRatio = matchedPatternCount / totalPatterns;
+                        let confidence = 'low';
+                        if (patternRatio >= 0.66 || (rule.severity === 'high' && matchedPatternCount >= 2)) {
+                            confidence = 'high';
+                        } else if (patternRatio >= 0.33 || matchedPatternCount >= 2) {
+                            confidence = 'medium';
+                        }
+                        results.push({
+                            type: rule._type,
+                            name: rule.name,
+                            name_en: rule.name_en,
+                            description: rule.description,
+                            severity: rule.severity,
+                            confidence: confidence,
+                            matched: matchedText,
+                            context: context,
+                            position: charPos,
+                            paragraph: para,
+                            suggestion: rule.suggestion,
+                        });
+                    }
+                }
+            }
+        }
+
+        results.sort((a, b) => a.position - b.position);
+        return results;
+    }
+
+    function generateSummary(results) {
+        if (!results || results.length === 0) {
+            return { total_issues: 0, total_fallacies: 0, total_biases: 0, severity_counts: { high: 0, medium: 0, low: 0 }, confidence_counts: { high: 0, medium: 0, low: 0 }, score: 100, evaluation: '未检测到逻辑问题' };
+        }
+        const fallacies = results.filter(r => r.type === 'fallacy');
+        const biases = results.filter(r => r.type === 'bias');
+        const severityCounts = { high: 0, medium: 0, low: 0 };
+        const confidenceCounts = { high: 0, medium: 0, low: 0 };
+        for (const r of results) {
+            severityCounts[r.severity] = (severityCounts[r.severity] || 0) + 1;
+            confidenceCounts[r.confidence] = (confidenceCounts[r.confidence] || 0) + 1;
+        }
+        let score = 100;
+        score -= fallacies.length * 5;
+        score -= biases.length * 3;
+        score -= severityCounts.high * 5;
+        score = Math.max(0, Math.min(100, score));
+        let evaluation;
+        if (score >= 90) evaluation = '思维质量优秀，逻辑较为严密';
+        else if (score >= 70) evaluation = '思维质量良好，存在少量可改进之处';
+        else if (score >= 50) evaluation = '思维质量一般，建议仔细检查问题和改进';
+        else evaluation = '思维漏洞较多，建议系统性地进行批判性思维训练';
+        return { total_issues: results.length, total_fallacies: fallacies.length, total_biases: biases.length, severity_counts: severityCounts, confidence_counts: confidenceCounts, score: score, evaluation: evaluation };
+    }
+
+    function renderHighlightedText(text, results) {
+        const container = document.getElementById('highlightedText');
+        if (results.length === 0) { container.innerHTML = escapeHtml(text); return; }
+        const paragraphs = text.split('\n');
+        const resultHtml = paragraphs.map(para => {
+            if (!para.trim()) return '';
+            const paraResults = results.filter(r => r.paragraph === para || para.includes(r.matched));
+            if (paraResults.length === 0) return escapeHtml(para);
+            let html = '';
+            let pos = 0;
+            const paraSorted = paraResults.filter(r => para.includes(r.matched)).sort((a, b) => para.indexOf(a.matched) - para.indexOf(b.matched));
+            for (const r of paraSorted) {
+                const matchPos = para.indexOf(r.matched, pos);
+                if (matchPos === -1 || matchPos < pos) continue;
+                if (matchPos > pos) html += escapeHtml(para.slice(pos, matchPos));
+                const bgClass = r.confidence === 'high' ? 'bg-red-200' : r.confidence === 'medium' ? 'bg-yellow-200' : 'bg-gray-200';
+                html += '<span class="' + bgClass + ' rounded px-0.5 cursor-help" title="' + escapeHtml(r.name) + ' (' + (r.confidence === 'high' ? '高置信度' : r.confidence === 'medium' ? '中置信度' : '低置信度') + ')">' + escapeHtml(r.matched) + '</span>';
+                pos = matchPos + r.matched.length;
+            }
+            if (pos < para.length) html += escapeHtml(para.slice(pos));
+            return html;
+        }).join('\n');
+        container.innerHTML = resultHtml || escapeHtml(text);
+        document.getElementById('highlightArea').classList.remove('hidden');
+    }
+
+    // ============ 训练模式 ============
+    let trainQuestions = [];
+    let trainIndex = 0;
+    let trainCorrect = 0;
+    let trainWrong = 0;
+
+    function generateTrainQuestions() {
+        const { fallacies, biases } = getAllRules();
+        const type = document.getElementById('trainType').value;
+        const count = parseInt(document.getElementById('trainCount').value);
+        let pool = [];
+        if (type === 'fallacy') pool = fallacies;
+        else if (type === 'bias') pool = biases;
+        else pool = [...fallacies, ...biases];
+
+        const trainSamples = [];
+        const usedIndices = new Set();
+        const maxAttempts = 50;
+        let attempts = 0;
+        while (trainSamples.length < count && attempts < maxAttempts) {
+            attempts++;
+            const idx = Math.floor(Math.random() * pool.length);
+            if (usedIndices.has(idx)) continue;
+            usedIndices.add(idx);
+            const rule = pool[idx];
+            const q = generateQuestionForRule(rule, pool);
+            if (q) trainSamples.push(q);
+        }
+        return trainSamples;
+    }
+
+    function generateQuestionForRule(correctRule, allRules) {
+        const fallbackPatterns = [
+            '我觉得这个方案不行，因为我就是觉得它不好。',
+            '你一个连大学都没上过的人，也配讨论这个问题？',
+            '要么全盘接受我的计划，要么就别想成功。',
+            '如果今天允许他们抗议，明天就会推翻整个政府。',
+            '我认识的几个上海人都很小气，所以上海人都很小气。',
+            '专家说了这个产品好，那就肯定没问题。',
+            '天然的东西肯定比人工的好。',
+            '你难道忍心看着这些孩子受苦吗？',
+            '大家都在用这个App，说明它一定是最好的。',
+            '你自己不也经常迟到吗，有什么资格说我？',
+        ];
+        const text = correctRule.patterns.length > 0
+            ? (correctRule.patterns[0].source || fallbackPatterns[Math.floor(Math.random() * fallbackPatterns.length)])
+            : fallbackPatterns[Math.floor(Math.random() * fallbackPatterns.length)];
+        const wrongOptions = allRules
+            .filter(r => r.name !== correctRule.name)
+            .sort(() => Math.random() - 0.5)
+            .slice(0, 3);
+        const options = [{ name: correctRule.name, correct: true }].concat(
+            wrongOptions.map(r => ({ name: r.name, correct: false }))
+        );
+        const shuffled = options.sort(() => Math.random() - 0.5);
+        return {
+            text: correctRule.description ? `"${generateExampleText(correctRule.name)}"` : text,
+            options: shuffled,
+            correctName: correctRule.name,
+            explanation: correctRule.description + '。' + correctRule.suggestion,
+            patterns: correctRule.patterns
+        };
+    }
+
+    function generateExampleText(name) {
+        const examples = {
+            '人身攻击谬误': '你这种无知的人有什么资格谈这个问题？',
+            '稻草人谬误': '所以你的意思就是要全面否定现有的制度？',
+            '虚假两难': '要么听我的，要么就是不想公司好。',
+            '滑坡谬误': '如果允许同性婚姻，人类传统家庭就会瓦解。',
+            '循环论证': '这个药有效是因为它能治病，它能治病是因为它有效。',
+            '以偏概全': '我认识的三个程序员都很内向，所以程序员都内向。',
+            '诉诸权威': '院士都这么说了，你还怀疑什么？',
+            '诉诸自然': '纯天然的就是比化学合成的健康。',
+            '诉诸情感': '你忍心看着这些贫困儿童失去上学机会吗？',
+            '从众谬误': '几百万用户都选择了这款产品，它一定是最好的。',
+            '你也一样谬误': '你自己开车也超速，凭什么说我违章？',
+            '起源谬误': '这话出自那个臭名昭著的媒体，肯定不可信。',
+            '合成谬误': '每个球员都很优秀，所以这支球队一定很强。',
+            '分解谬误': '这家公司很优秀，所以每个员工都很优秀。',
+            '赌徒谬误': '已经连续输了五把了，下一把肯定赢。',
+            '确认偏误': '我一直觉得经济不行，最近的裁员果然证明了这一点。',
+            '锚定效应': '参考去年的价格来看，今年的报价还算合理。',
+            '达克效应': '这有什么难的？不就是写个程序吗？',
+            '幸存者偏差': '你看某某也退学了，不照样成了亿万富翁。',
+            '可得性启发': '最近新闻上总看到飞机失事，坐飞机太危险了。',
+            '后见之明': '我早就知道这个项目会失败。',
+            '过度自信': '我百分之百确定这个方案会成功。',
+            '沉没成本谬误': '都学了三年了，现在放弃太可惜了。',
+            '框架效应': '这个手术成功率90%，比那个失败率10%的手术好。',
+            '负面偏误': '这个方案不错，但是也有几个问题需要担心。'
+        };
+        return examples[name] || '根据这种逻辑，我们可以得出以下结论……';
+    }
+
+    function startTraining() {
+        trainQuestions = generateTrainQuestions();
+        trainIndex = 0;
+        trainCorrect = 0;
+        trainWrong = 0;
+        if (trainQuestions.length === 0) {
+            showToast('无法生成训练题目，请检查规则库');
+            return;
+        }
+        renderTrainProgress();
+        showTrainQuestion();
+        document.getElementById('trainComplete').classList.add('hidden');
+        document.getElementById('trainRestartBtn').classList.add('hidden');
+        document.getElementById('trainNextBtn').classList.add('hidden');
+        document.getElementById('trainSubmitBtn').classList.remove('hidden');
+        document.getElementById('trainAnswer').classList.add('hidden');
+        document.getElementById('trainWrong').classList.add('hidden');
+    }
+
+    function renderTrainProgress() {
+        document.getElementById('trainProgress').classList.remove('hidden');
+        document.getElementById('trainProgressText').textContent = '第 ' + (trainIndex + 1) + '/' + trainQuestions.length + ' 题';
+        document.getElementById('trainScoreText').textContent = '正确：' + trainCorrect + ' | 错误：' + trainWrong;
+        const pct = ((trainIndex) / trainQuestions.length) * 100;
+        document.getElementById('trainProgressBar').style.width = pct + '%';
+    }
+
+    function showTrainQuestion() {
+        if (trainIndex >= trainQuestions.length) {
+            completeTraining();
+            return;
+        }
+        const q = trainQuestions[trainIndex];
+        document.getElementById('trainQuestion').classList.remove('hidden');
+        document.getElementById('trainQuestionText').textContent = q.text;
+        document.getElementById('trainSubmitBtn').classList.remove('hidden');
+        document.getElementById('trainNextBtn').classList.add('hidden');
+        document.getElementById('trainAnswer').classList.add('hidden');
+        document.getElementById('trainWrong').classList.add('hidden');
+        renderTrainProgress();
+
+        const optsDiv = document.getElementById('trainOptions');
+        optsDiv.innerHTML = q.options.map((o, i) =>
+            '<label class="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50 transition train-option" data-correct="' + o.correct + '" data-index="' + i + '">' +
+            '<input type="radio" name="trainOpt" value="' + i + '" class="w-4 h-4 text-blue-600">' +
+            '<span class="text-sm text-gray-700">' + o.name + '</span>' +
+            '</label>'
+        ).join('');
+        document.getElementById('trainSelectedOption').value = '';
+    }
+
+    function submitTrainAnswer() {
+        const selected = document.querySelector('input[name="trainOpt"]:checked');
+        if (!selected) { showToast('请选择一个答案'); return; }
+        const q = trainQuestions[trainIndex];
+        const isCorrect = q.options[parseInt(selected.value)].correct;
+        if (isCorrect) {
+            trainCorrect++;
+            document.getElementById('trainAnswer').classList.remove('hidden');
+            document.getElementById('trainResultText').textContent = '回答正确！这是「' + q.correctName + '」';
+            document.getElementById('trainExplanation').textContent = q.explanation;
+            document.getElementById('trainWrong').classList.add('hidden');
+        } else {
+            trainWrong++;
+            document.getElementById('trainWrong').classList.remove('hidden');
+            document.getElementById('trainWrongResult').textContent = '回答错误，你再想想？';
+            const correctOption = q.options.find(o => o.correct);
+            document.getElementById('trainCorrectAnswer').textContent = '正确答案是：「' + (correctOption ? correctOption.name : q.correctName) + '」。' + q.explanation;
+            document.getElementById('trainAnswer').classList.add('hidden');
+        }
+        document.getElementById('trainSubmitBtn').classList.add('hidden');
+        document.getElementById('trainNextBtn').classList.remove('hidden');
+        if (trainIndex >= trainQuestions.length - 1) {
+            document.getElementById('trainNextBtn').textContent = '查看结果';
+        } else {
+            document.getElementById('trainNextBtn').textContent = '下一题';
+        }
+        renderTrainProgress();
+    }
+
+    function nextTrainQuestion() {
+        trainIndex++;
+        if (trainIndex >= trainQuestions.length) {
+            completeTraining();
+        } else {
+            showTrainQuestion();
+        }
+    }
+
+    function completeTraining() {
+        document.getElementById('trainQuestion').classList.add('hidden');
+        document.getElementById('trainComplete').classList.remove('hidden');
+        const total = trainQuestions.length;
+        const pct = total > 0 ? Math.round((trainCorrect / total) * 100) : 0;
+        document.getElementById('trainCompleteText').textContent = '共 ' + total + ' 题，正确 ' + trainCorrect + ' 题，正确率 ' + pct + '%';
+        document.getElementById('trainRestartBtn').classList.remove('hidden');
+
+        // 保存训练记录
+        const records = JSON.parse(localStorage.getItem('trainRecords') || '[]');
+        records.unshift({ date: new Date().toLocaleString('zh-CN'), total, correct: trainCorrect, pct });
+        if (records.length > 50) records.length = 50;
+        localStorage.setItem('trainRecords', JSON.stringify(records));
+        renderTrainHistory();
+
+        // 更新最佳记录
+        const best = records.reduce((max, r) => r.pct > max ? r.pct : max, 0);
+        document.getElementById('trainBestRecord').textContent = best + '%';
+    }
+
+    function renderTrainHistory() {
+        const records = JSON.parse(localStorage.getItem('trainRecords') || '[]');
+        const container = document.getElementById('trainHistoryList');
+        if (records.length === 0) {
+            container.innerHTML = '<div class="text-center text-gray-400 text-sm py-4"><i class="fa fa-inbox"></i> 暂无训练记录</div>';
+            return;
+        }
+        container.innerHTML = records.map(r =>
+            '<div class="flex items-center justify-between p-2 bg-gray-50 rounded">' +
+            '<span class="text-xs text-gray-500">' + r.date + '</span>' +
+            '<span class="text-sm">' + r.correct + '/' + r.total + ' <span class="text-' + (r.pct >= 80 ? 'green' : r.pct >= 50 ? 'yellow' : 'red') + '-600 font-medium">' + r.pct + '%</span></span>' +
+            '</div>'
+        ).join('');
+    }
+
+    function clearTrainHistory() {
+        if (confirm('确定清空所有训练记录？')) {
+            localStorage.removeItem('trainRecords');
+            renderTrainHistory();
+        }
+    }
+
+    // ============ 规则编辑器 ============
+    function showAddRuleForm() {
+        document.getElementById('addRuleForm').classList.remove('hidden');
+    }
+    function hideAddRuleForm() {
+        document.getElementById('addRuleForm').classList.add('hidden');
+    }
+
+    function saveCustomRule() {
+        const name = document.getElementById('ruleName').value.trim();
+        const desc = document.getElementById('ruleDesc').value.trim();
+        const suggestion = document.getElementById('ruleSuggestion').value.trim();
+        const patternsText = document.getElementById('rulePatterns').value.trim();
+        if (!name || !desc || !patternsText || !suggestion) {
+            showToast('请填写所有必填项（带*的字段）');
+            return;
+        }
+        const patterns = patternsText.split('\n').filter(l => l.trim());
+        const patternsArr = [];
+        for (const p of patterns) {
+            try {
+                const regex = new RegExp(p.trim().replace(/^\//, '').replace(/\/[gimsuy]*$/, ''), 'g');
+                patternsArr.push(regex);
+            } catch(e) {
+                showToast('正则表达式格式错误：' + p);
+                return;
+            }
+        }
+        const excludeText = document.getElementById('ruleExclude').value.trim();
+        const excludeArr = [];
+        if (excludeText) {
+            for (const p of excludeText.split('\n').filter(l => l.trim())) {
+                try {
+                    excludeArr.push(new RegExp(p.trim().replace(/^\//, '').replace(/\/[gimsuy]*$/, '')));
+                } catch(e) {
+                    showToast('排除模式正则格式错误：' + p);
+                    return;
+                }
+            }
+        }
+
+        const rule = {
+            name: name,
+            nameEn: document.getElementById('ruleNameEn').value.trim(),
+            type: document.getElementById('ruleType').value,
+            severity: document.getElementById('ruleSeverity').value,
+            desc: desc,
+            suggestion: suggestion,
+            patternsText: patternsText,
+            patternsArr: patternsArr,
+            excludeText: excludeText,
+            excludeArr: excludeArr,
+            id: Date.now()
+        };
+        const rules = getCustomRules();
+        rules.push(rule);
+        saveCustomRulesToStorage(rules);
+        hideAddRuleForm();
+        renderCustomRules();
+        showToast('自定义规则已保存');
+
+        document.getElementById('ruleName').value = '';
+        document.getElementById('ruleNameEn').value = '';
+        document.getElementById('ruleDesc').value = '';
+        document.getElementById('ruleSuggestion').value = '';
+        document.getElementById('rulePatterns').value = '';
+        document.getElementById('ruleExclude').value = '';
+    }
+
+    function deleteCustomRule(id) {
+        if (!confirm('确定删除此规则？')) return;
+        let rules = getCustomRules();
+        rules = rules.filter(r => r.id !== id);
+        saveCustomRulesToStorage(rules);
+        renderCustomRules();
+        showToast('规则已删除');
+    }
+
+    function renderCustomRules() {
+        const rules = getCustomRules();
+        const container = document.getElementById('customRulesList');
+        if (rules.length === 0) {
+            container.innerHTML = '<div class="text-center text-gray-400 py-6"><i class="fa fa-inbox text-3xl block mb-2"></i><p class="text-sm">暂无自定义规则</p></div>';
+            return;
+        }
+        container.innerHTML = rules.map(r =>
+            '<div class="p-4 bg-gray-50 rounded-lg border border-gray-200 mb-2">' +
+            '<div class="flex items-center justify-between mb-2">' +
+            '<div class="flex items-center gap-2">' +
+            '<span class="font-bold text-gray-800">' + escapeHtml(r.name) + '</span>' +
+            '<span class="text-xs px-2 py-0.5 rounded ' + (r.type === 'fallacy' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700') + '">' + (r.type === 'fallacy' ? '逻辑谬误' : '认知偏误') + '</span>' +
+            '<span class="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-600">' + (r.severity === 'high' ? '严重' : r.severity === 'medium' ? '中等' : '轻微') + '</span>' +
+            '</div>' +
+            '<button onclick="deleteCustomRule(' + r.id + ')" class="text-red-500 hover:text-red-700"><i class="fa fa-trash"></i></button>' +
+            '</div>' +
+            '<p class="text-sm text-gray-600 mb-1">' + escapeHtml(r.desc) + '</p>' +
+            '<p class="text-xs text-gray-400 font-mono">模式：' + escapeHtml(r.patternsText.substring(0, 60)) + (r.patternsText.length > 60 ? '...' : '') + '</p>' +
+            '</div>'
+        ).join('');
+    }
+
+    // ============ Tab 切换 ============
+    function switchTab(tab) {
+        ['scan', 'train', 'rules'].forEach(t => {
+            document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('hidden', t !== tab);
+            const btn = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
+            btn.className = t === tab ? 'px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium transition' : 'px-5 py-2.5 bg-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-300 transition';
+        });
+        if (tab === 'rules') renderCustomRules();
+        if (tab === 'train') {
+            const records = JSON.parse(localStorage.getItem('trainRecords') || '[]');
+            const best = records.reduce((max, r) => r.pct > max ? r.pct : max, 0);
+            document.getElementById('trainBestRecord').textContent = best > 0 ? best + '%' : '-';
+            renderTrainHistory();
+        }
+    }
+
+    // ============ UI 逻辑 ============
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const inputText = document.getElementById('inputText');
+        const scanBtn = document.getElementById('scanBtn');
+        const loadSampleBtn = document.getElementById('loadSampleBtn');
+        const resultsEl = document.getElementById('results');
+        const resultList = document.getElementById('resultList');
+        const resultCount = document.getElementById('resultCount');
+        const fallacyCount = document.getElementById('fallacyCount');
+        const biasCount = document.getElementById('biasCount');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const confidenceDisplay = document.getElementById('confidenceDisplay');
+        const charCount = document.getElementById('charCount');
+        const fallacyList = document.getElementById('fallacyList');
+        const biasList = document.getElementById('biasList');
+        const exportReportBtn = document.getElementById('exportReportBtn');
+        const showSuggestionsBtn = document.getElementById('showSuggestionsBtn');
+        const suggestionsPanel = document.getElementById('suggestionsPanel');
+        let lastResults = [];
+        let lastText = '';
+
+        const { fallacies, biases } = getAllRules();
+        fallacies.forEach(f => {
+            const li = document.createElement('li');
+            li.innerHTML = '<span class="font-medium">' + f.name + '</span> - ' + f.description;
+            fallacyList.appendChild(li);
+        });
+        biases.forEach(b => {
+            const li = document.createElement('li');
+            li.innerHTML = '<span class="font-medium">' + b.name + '</span> - ' + b.description;
+            biasList.appendChild(li);
+        });
+
+        inputText.addEventListener('input', function () {
+            charCount.textContent = this.value.length + ' 字';
+        });
+
+        loadSampleBtn.addEventListener('click', function () {
+            inputText.value = [
+                '我认为这个方案很好，因为所有竞争对手都在这么做。所以这个方案是正确的。',
+                '你这个连基本常识都不懂的人，有什么资格评价我的方案？',
+                '要么接受我的方案，要么就是不想让公司发展。',
+                '如果采用这个新技术，公司就会陷入混乱，最终倒闭。',
+                '我早就知道这个项目会失败，当初就觉得不对劲。',
+                '专家说这个方向是对的，所以不需要再怀疑。',
+                '已经投入了这么多时间和精力，现在放弃太可惜了。',
+            ].join('\n');
+            charCount.textContent = inputText.value.length + ' 字';
+        });
+
+        scanBtn.addEventListener('click', function () {
+            const text = inputText.value.trim();
+            if (!text) { showToast('请输入需要检测的文本'); return; }
+            scanBtn.disabled = true;
+            scanBtn.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i>扫描中...';
+            lastText = text;
+            setTimeout(function () {
+                try {
+                    const data = scanText(text);
+                    const summary = generateSummary(data);
+                    lastResults = data;
+                    fallacyCount.textContent = summary.total_fallacies;
+                    biasCount.textContent = summary.total_biases;
+                    scoreDisplay.textContent = summary.score + '/100';
+                    confidenceDisplay.textContent = summary.confidence_counts.high || 0;
+                    renderHighlightedText(text, data);
+                    resultsEl.classList.remove('hidden');
+                    suggestionsPanel.classList.add('hidden');
+                    resultList.innerHTML = '';
+                    if (data.length === 0) {
+                        resultCount.textContent = '未检测到逻辑问题，思维质量良好';
+                        resultList.innerHTML = '<div class="bg-green-50 border border-green-200 rounded-lg p-6 text-center">' +
+                            '<i class="fa fa-check-circle text-green-500 text-4xl mb-2"></i>' +
+                            '<p class="text-green-700 font-medium">未检测到逻辑谬误和认知偏误</p>' +
+                            '<p class="text-green-600 text-sm mt-1">论证质量良好，继续保持批判性思维</p></div>';
+                        return;
+                    }
+                    const totalHigh = summary.confidence_counts.high || 0;
+                    const totalMedium = summary.confidence_counts.medium || 0;
+                    const totalLow = summary.confidence_counts.low || 0;
+                    resultCount.textContent = '共检测 ' + data.length + ' 处（高置信度 ' + totalHigh + ' 处，中 ' + totalMedium + ' 处，低 ' + totalLow + ' 处）';
+                    data.forEach(function (r) {
+                        var bgColor = r.severity === 'high' ? 'bg-red-50 border-red-200' : r.severity === 'medium' ? 'bg-yellow-50 border-yellow-200' : 'bg-blue-50 border-blue-200';
+                        var severityLabel = r.severity === 'high' ? '严重' : r.severity === 'medium' ? '中等' : '轻微';
+                        var typeLabel = r.type === 'fallacy' ? '逻辑谬误' : '认知偏误';
+                        var typeColor = r.type === 'fallacy' ? 'text-blue-700 bg-blue-100' : 'text-purple-700 bg-purple-100';
+                        var confidenceLabel = r.confidence === 'high' ? '高置信度' : r.confidence === 'medium' ? '中置信度' : '低置信度';
+                        var confidenceColor = r.confidence === 'high' ? 'bg-red-100 text-red-700' : r.confidence === 'medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600';
+                        var div = document.createElement('div');
+                        div.className = 'border rounded-lg p-4 ' + bgColor;
+                        div.innerHTML = '<div class="flex items-center justify-between mb-2">' +
+                            '<div class="flex items-center gap-2">' +
+                            '<span class="text-xs font-medium px-2 py-0.5 rounded ' + typeColor + '">' + typeLabel + '</span>' +
+                            '<span class="text-xs font-medium px-2 py-0.5 rounded ' + confidenceColor + '">' + confidenceLabel + '</span>' +
+                            '<span class="text-xs font-medium px-2 py-0.5 rounded bg-gray-100 text-gray-600">' + severityLabel + '</span>' +
+                            '</div>' +
+                            '<span class="font-bold text-gray-800">' + r.name + '</span></div>' +
+                            '<p class="text-sm text-gray-600 mb-1">' + r.description + '</p>' +
+                            '<div class="bg-white bg-opacity-50 rounded p-2 mt-2 text-sm">' +
+                            '<span class="text-gray-500">匹配内容：</span>' +
+                            '<code class="text-red-600">' + escapeHtml(r.matched) + '</code></div>' +
+                            '<div class="mt-2 text-sm"><span class="text-gray-500">改进建议：</span><span class="text-gray-700">' + r.suggestion + '</span></div>';
+                        resultList.appendChild(div);
+                    });
+                } catch (err) { showToast('扫描出错：' + err.message); }
+                finally {
+                    scanBtn.disabled = false;
+                    scanBtn.innerHTML = '<i class="fa fa-search mr-1"></i>开始扫描';
+                }
+            }, 100);
+        });
+
+        showSuggestionsBtn.addEventListener('click', function () {
+            if (lastResults.length === 0) return;
+            suggestionsPanel.classList.remove('hidden');
+            const list = document.getElementById('suggestionsList');
+            list.innerHTML = lastResults.map((r, i) => {
+                const severityLabel = r.severity === 'high' ? '严重' : r.severity === 'medium' ? '中等' : '轻微';
+                const confidenceLabel = r.confidence === 'high' ? '高置信度' : r.confidence === 'medium' ? '中置信度' : '低置信度';
+                const confColor = r.confidence === 'high' ? 'bg-red-100 text-red-700' : r.confidence === 'medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600';
+                return '<div class="p-4 bg-gray-50 rounded-lg border border-gray-200">' +
+                    '<div class="flex items-center gap-2 mb-2">' +
+                    '<span class="text-sm font-bold text-gray-700">#' + (i + 1) + ' ' + r.name + '</span>' +
+                    '<span class="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-600">' + severityLabel + '</span>' +
+                    '<span class="text-xs px-2 py-0.5 rounded ' + confColor + '">' + confidenceLabel + '</span></div>' +
+                    '<p class="text-sm text-gray-600 mb-2"><span class="text-gray-400">检测到：</span><code class="text-red-600 bg-red-50 px-1 rounded">' + escapeHtml(r.matched) + '</code></p>' +
+                    '<div class="bg-white rounded p-3 border border-green-200"><p class="text-sm text-green-700"><span class="font-medium">修改建议：</span>' + r.suggestion + '</p></div></div>';
+            }).join('');
+            suggestionsPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+
+        exportReportBtn.addEventListener('click', function () {
+            if (lastResults.length === 0 && lastText === '') return;
+            const text = lastText || inputText.value.trim();
+            const summary = generateSummary(lastResults);
+            const severityLabels = { high: '严重', medium: '中等', low: '轻微' };
+            const confLabels = { high: '高', medium: '中', low: '低' };
+            let report = '# 思维漏洞扫描报告\n\n**扫描时间**：' + new Date().toLocaleString('zh-CN') + '\n' +
+                '**总问题数**：' + summary.total_issues + '\n' +
+                '**逻辑谬误**：' + summary.total_fallacies + '\n' +
+                '**认知偏误**：' + summary.total_biases + '\n' +
+                '**高置信度**：' + (summary.confidence_counts.high || 0) + '\n' +
+                '**中置信度**：' + (summary.confidence_counts.medium || 0) + '\n' +
+                '**低置信度**：' + (summary.confidence_counts.low || 0) + '\n' +
+                '**思维评分**：' + summary.score + '/100\n' +
+                '**评估结论**：' + summary.evaluation + '\n\n---\n\n## 原文\n\n```\n' + text + '\n```\n\n## 检测结果\n\n';
+            lastResults.forEach((r, i) => {
+                var typeLabel = r.type === 'fallacy' ? '逻辑谬误' : '认知偏误';
+                report += '### ' + (i + 1) + '. ' + r.name + '（' + typeLabel + '）\n' +
+                    '- **置信度**：' + confLabels[r.confidence] + '\n' +
+                    '- **严重程度**：' + severityLabels[r.severity] + '\n' +
+                    '- **匹配内容**：`' + r.matched + '`\n' +
+                    '- **改进建议**：' + r.suggestion + '\n\n';
+            });
+            report += '---\n由思维漏洞扫描器自动生成\n';
+            const blob = new Blob([report], { type: 'text/markdown;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = '思维漏洞报告_' + new Date().toISOString().slice(0, 10) + '.md';
+            a.click();
+        });
+
+        renderCustomRules();
+        // 训练记录
+        const records = JSON.parse(localStorage.getItem('trainRecords') || '[]');
+        const best = records.reduce((max, r) => r.pct > max ? r.pct : max, 0);
+        document.getElementById('trainBestRecord').textContent = best > 0 ? best + '%' : '-';
+        renderTrainHistory();
+    });
+
+    function escapeHtml(str) {
+        var div = document.createElement('div');
+        div.appendChild(document.createTextNode(str));
+        return div.innerHTML;
+    }
+
+    function showToast(msg) {
+        const existing = document.querySelector('.toast-notice');
+        if (existing) existing.remove();
+        const toast = document.createElement('div');
+        toast.className = 'toast-notice fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-5 py-3 rounded-lg shadow-lg text-sm z-50 transition-all duration-300';
+        toast.style.opacity = '0';
+        toast.style.transform = 'translate(-50%, 20px)';
+        toast.textContent = msg;
+        document.body.appendChild(toast);
+        requestAnimationFrame(function() { toast.style.opacity = '1'; toast.style.transform = 'translate(-50%, 0)'; });
+        setTimeout(function() { toast.style.opacity = '0'; toast.style.transform = 'translate(-50%, 20px)'; setTimeout(function() { toast.remove(); }, 300); }, 2000);
+    }
+    </script>
+</body>
+</html>
